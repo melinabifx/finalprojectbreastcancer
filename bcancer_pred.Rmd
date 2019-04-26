@@ -1,0 +1,224 @@
+---
+title: "BIFX551 Final Group Project, Breast Cancer Prediction"
+authors: ""
+date: "4/25/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(finalprojectbreastcancer)
+
+bcancer <-read.csv(file="C:/Users/Admin/Documents/finalprojectbreastcancer/data-raw/data.csv",stringsAsFactors = FALSE, header= TRUE)
+
+
+##obtaining the data
+
+#make data-raw directory
+#usethis::use_data_raw()        #uncomment if required
+
+#convert M and B into hard coded 1 (M) and 0 (B)
+
+bcancer$diagnosis [bcancer$diagnosis == "M"] <- 1
+bcancer$diagnosis [bcancer$diagnosis == "B"] <- 0
+
+#print the columns of the dataset.
+print(colnames(bcancer))
+
+
+##exploring the data
+
+knitr::kable(head(bcancer))        
+
+
+
+##preparing the data. (bc=breast cancer)
+
+#randomly shuffle the rows
+set.seed(1)
+bc <- bcancer[sample(nrow(bcancer)),]
+
+#remove all the rows that contain missing data
+bc <- na.omit(bc)
+
+#divide the data into training and testing sets corresponding to 80% and 20% of data respectively.
+n <- nrow(bc)
+ntrain <- round(0.8*n)
+bc_train <- bc[1:ntrain,]
+bc_test <- bc[(ntrain+1):n,]
+
+#creating the data structures corresponding to the outcome of the experiment to be predicted by ML algorithm.
+bc_train_label <- bc_train[,ncol(bc_train)]
+bc_test_label <- bc_test[,ncol(bc_test)]
+
+#check if the outcome are numeric, because we want to predict numeric outcomes.
+is.numeric(bc_train_label)        #should be TRUE
+is.numeric(bc_test_label)         #should be TRUE
+
+#creating the testing data used as the input data by ML algorithm to predict the outcome. Need to ignore predict labels.
+bc_train_data <- bc_train[,1,drop=F:(ncol(bc_train)-1)]
+bc_test_data <- bc_test[,1,drop=F:(ncol(bc_test)-1)]
+
+
+#save all the created data in the sub-directory "data".
+#save(bc_train_data, bc_train_label, bc_test_data, bc_test_label, file = "bcancer_pred.rda")      #uncomment if needed.
+#save(bcancer, file = "bcancer_pred.rda")     #uncomment if needed
+
+
+#read the newly created package finalprojectbreastcancer and check the data variables in it(training and testing).
+data(bcancer, package = "finalprojectbreastcancer")
+ls(pattern = "ha.*")
+
+#look the 1st line of the training data and training outcome.
+head(bc_train_data)
+head(bc_train_label)
+
+#convert the outcome into logical
+bc_train_label <- as.logical(bc_train_label)
+bc_test_label <- as.logical(bc_test_label)
+
+
+
+```
+
+
+
+
+
+
+
+# Abstract
+
+# Data Collection
+
+The original dataset was obtained from the Kaggle, data collection site 
+<https://www.kaggle.com/uciml/breast-cancer-wisconsin-data/version/2>
+
+
+# Data Preparation
+
+# Data Preparation
+
+The data preparation provided by Kaggle corresponds to converting categorical multi-class labels into one-hot encoded binary features. This data set was download and divided into 20% testing and 80% training data, containing `r nrow(bc_test_data)` and `r nrow(bc_train_data)` cases, respectively. Also the attributes used for learning were separated from the target vaues to be predicted. This data was obtained from the R package `finalprojectbreastcancer`. It is available using the R command `data(bc)`.
+
+
+# Data Exploration
+
+The summarize and the graph visualization of the variables used in the dataset are as follows:
+
+
+```{r include=TRUE}
+
+# Summary statistics of the variables:
+
+
+
+summary(bcancer[c("radius_mean")])
+
+```
+
+
+# Training The Models
+
+The `naiveBayes` function from the R package `e1071` was used in order to apply the naive Bayes approach for classifying the input data. The performance of the approach was evaluated using `laplace` parameter being set to 0 or 1.
+
+The `C5.0` function from the R package `C50` was used as an example of a decision tree approach for machine learning.
+
+The function `knn` from the R package `class` was used for using a k-nearest neighbor approach in order to classify the input data. Different values of parameter `k` were tried out [WHICH ONES?].
+
+Applying the 3 approaches with default parameters, leads to the following results:
+
+```{r include=TRUE}
+
+library(C50)
+library(class)
+library(e1071)
+
+```
+
+
+k-NN Method
+
+```{r include=TRUE}
+
+
+
+#knnresult <- knn(bc_train_data, bc_test_data, bc_train_label)
+
+#convert knnresult into logical
+#knnresult <- as.logical(knnresult)
+
+```
+
+
+Naive Bayes
+
+```{r include=TRUE}
+
+nbmodel <- naiveBayes(bc_train_data, bc_train_label)
+
+nbpred <- predict(nbmodel, bc_test_data)
+
+#convert nbpred into logical
+nbpred <- as.logical(nbpred)
+
+```
+
+Decision tree (C5.0)
+
+```{r include=TRUE}
+
+dtmodel <- C5.0(x=bc_train_data, y=factor(bc_train_label))
+
+summary(dtmodel)
+
+dtpred <- predict(dtmodel, bc_test_data)
+
+#convert dtpred into logical
+dtpred <- as.logical(dtpred)
+
+```
+# Evaluating the Models
+
+Naive Bayes
+
+```{r include=TRUE}
+
+nbbcancer <- table(bc_test_label, nbpred)
+
+knitr::kable(table(bc_test_label, nbpred))
+
+#compute tp, tn, fp, fn
+tp_nb <- sum(nbpred & bc_test_label)
+fp_nb <- sum(nbpred & (!bc_test_label))
+tn_nb <- sum((!nbpred) & (!bc_test_label))
+fn_nb <- sum((!nbpred) & bc_test_label)
+
+#make the data frame of the values
+nbdf <- as.data.frame(nbbcancer)   
+
+#compute accuracy, sensitivity, specificity, J-score, Matthews Correlation Coefficient
+acc_nb <- sum(nbdf[1,3], nbdf[4,3]) / sum(nbdf[1,3], nbdf[2,3], nbdf[3,3], nbdf[4,3])
+sen_nb <- nbdf[4,3] / sum(nbdf[4,3], nbdf[3,3])
+sp_nb <- nbdf[1,3] / sum(nbdf[1,3], nbdf[2,3])
+J_nb <- sen_nb + sp_nb - 1
+mcc_nb <- ((nbdf[4,3]*nbdf[1,3]) - (nbdf[2,3]*nbdf[3,3])) / sqrt((nbdf[4,3]+nbdf[2,3])*(nbdf[4,3]+nbdf[3,3])*(nbdf[1,3]+nbdf[2,3])*(nbdf[1,3]+nbdf[3,3]))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
